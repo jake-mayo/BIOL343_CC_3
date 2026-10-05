@@ -1,0 +1,271 @@
+---
+title: "BIOL343 Coding Challenge 3"
+author: "Group # — names and student numbers in the chunk below"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# BIOL343 Coding Challenge 3
+
+## Group Members
+
+```{r group_members}
+# Name - Queen's Student Number
+
+# 1. Jake Mayo - 20186062
+
+```
+
+**Scenario chosen** (hospital or lakes; see the instructions):
+Hospital
+# DO THIS FIRST {-}
+
+Copy and paste this into your R Console to start positpal, but replace `FILENAME.Rmd` with the name you are going to use for the .R or .Rmd file you are going to upload (rename the template first, e.g. `Group_#_CC3.Rmd`, and use that exact name). **Do not include it as a code chunk.**
+
+```
+install.packages("remotes")
+remotes::install_url("https://quantitative.bio/downloads/positpal.tar.gz", upgrade = "never")
+positpal::start("FILENAME.Rmd")
+```
+
+Before you run it: open the project folder for this challenge in Positron (*File → Open Folder…*) so that it is your working directory, save this file in that folder under the name you will upload, and check that autosave is on (*File → Auto Save*). The first time you use positpal on a computer, `start()` will ask you to run `positpal::accept_eula()` once; do that, then run the `start()` line again. After a few minutes of work, check in the Explorer pane that the `.capture/snaps` folder inside your project is filling up with files. If it is not, or if `start()` refuses to record, run `positpal::doctor("FILENAME.Rmd")` and bring the output to tutorial or office hours. Run the `start()` line again at the start of every session you spend on this file.
+
+# Part 1 — Import and inspect three related files
+
+The three files are in the `data` folder: `Dataset1.csv`, `Dataset2.csv`, `Dataset3.csv`. Each row is one sample, identified by `ID` and `Date`: every patient (lake) was sampled once in 2021 and once in 2022, so the same `ID` appears twice in each file with different dates. **Do not edit the files by hand**; every correction happens in R.
+
+## 1. Load packages
+
+Load the packages you will use (Chapter 10, *Setup*): `dplyr`, `tidyr`, `lubridate`, `readr` and `ggplot2` (or `tidyverse`, which loads all of them).
+
+```{r load-packages, message=FALSE}
+library(tidyverse)
+```
+
+## 2. Import the three files
+
+Import each file and save them as `data1`, `data2` and `data3` (Chapter 10, *tibbles and readr*). Open `Dataset3.csv` in a text editor first: it was exported by a collaborator whose software uses a **semicolon** to separate columns. Check the help for `read_delim()` or `read.csv()` for the argument that sets the separator.
+
+```{r import-data}
+
+data1 <-read_delim("./Data/Dataset1.csv")
+
+data2 <-read_delim("./Data/Dataset2.csv")
+
+data3 <-read_delim("./Data/Dataset3.csv", delim = ";")
+
+```
+
+## 3. Inspect the data
+
+Use `str()` on all three objects.
+
+```{r inspect-data}
+str(data1)
+str(data2)
+str(data3)
+```
+
+**Question 1:** Which columns did R import as a type you did not expect, and what in the raw files caused it? (Look at the values in those columns.)
+
+**Answer:**
+PC1 and PC2 in datasets 2 and 3 show up as characters. Data set 3 has the word 'missing' and data set 2 has the letters 'N/A' in these columns.
+## 4. Fix the missing values
+
+The columns from Question 1 contain words where numbers are expected. Use `mutate()` (Chapter 10, *mutate() Columns*) with `as.numeric()` to convert them; R replaces anything it cannot read as a number with `NA` (the warning `NAs introduced by coercion` is expected here). Then count the missing values in each converted column with `sum(is.na())` (Chapter 10, *is.na()*).
+
+```{r fix-missing}
+
+data2 <- mutate(data2, PC1 = as.numeric(PC1), PC2= as.numeric(PC2))
+str(data2)
+data3 <- mutate(data3, PC1 = as.numeric(PC1), PC2= as.numeric(PC2))
+str(data3)
+
+# count the NAs
+sum(is.na(data2))
+sum(is.na(data3))
+```
+
+## 5. Rename the measurement columns
+
+`data2` and `data3` both have columns called `PC1` and `PC2`. Use `rename()` (Chapter 10, *rename() Columns*) to give them names that say where they came from, for example `micro_PC1`/`micro_PC2` and `urine_PC1`/`urine_PC2` (hospital) or `invert_PC1`/`invert_PC2` and `chem_PC1`/`chem_PC2` (lakes). Check the result with `names()`.
+
+```{r rename-columns}
+data2<-rename(data2, gut_PC1 = PC1, gut_PC2 = PC2)
+data3<-rename(data3, urine_PC1 = PC1, urine_PC2 = PC2)
+names(data2)
+names(data3)
+```
+
+**Question 2:** What would have happened to these column names if you had joined `data2` and `data3` without renaming? (Try it in the Console if you are not sure.)
+
+**Answer:**
+It would have kept both datasets' PC1s and 2s seperate in the same column by creating two categories of each: PC_.x and PC_.y. 
+## 6. Make sure `Date` is a date
+
+Check `class()` of the `Date` column in each of the three objects. If any of them is `character`, convert it with `ymd()` from `lubridate` (Chapter 10, *date Objects*). All three must be the same class before you join, or the join will refuse to match them.
+
+```{r fix-dates}
+class(data1$Date)
+class(data2$Date)
+class(data3$Date)
+```
+
+# Part 2 — Join the files
+
+## 7. Full join by ID and Date
+
+Combine the three objects into one called `all_data` with `full_join()` (Chapter 10, *Join Datasets*), matching rows that have the same `ID` **and** the same `Date`: `by = c("ID", "Date")`. Two joins are needed. Check the dimensions.
+
+```{r full-join}
+
+all_data <- full_join(data1, data2, by = c("ID","Date"))
+all_data <- full_join(all_data, data3, by = c("ID","Date"))
+dim(all_data)
+```
+
+## 8. Compare the join verbs
+
+Using only `data1` and `data2`, report the number of rows returned by `inner_join()`, `left_join()`, `right_join()` and `full_join()` (all `by = c("ID", "Date")`). `nrow()` is enough; do not print the tables.
+
+```{r compare-joins}
+
+# inner
+inner<-inner_join(data1, data2, by = c("ID","Date"))
+nrow(inner)
+# left
+left<-left_join(data1, data2, by = c("ID","Date"))
+nrow(left)
+# right
+right<-right_join(data1, data2, by = c("ID","Date"))
+nrow(right)
+# full
+full<-full_join(data1, data2, by = c("ID","Date"))
+nrow(full)
+```
+
+**Question 3:** The four numbers differ. Explain which rows each verb keeps, and what that tells you about samples that are in one file but not the other.
+
+**Answer:**
+Inner join only keeps rows with both date and ID matching, left join keeps all rows from data1 and only data from data2 that matches, right join keeps all rows from data2 and only data from data1 that matches and full join keeps everything. 
+It suggests that data1 has more samples than data2.
+# Part 3 — Dates, summaries and ordering
+
+## 9. Add year and month
+
+Add a `Year` column and a `Month` column to `all_data` with `mutate()` and the `lubridate` functions `year()` and `month()` (Chapter 10, *Extracting Components*).
+
+```{r add-year}
+all_data<- mutate(all_data, Year = factor(year(Date)), Month = month(Date, label = TRUE))
+```
+
+## 10. Summarise concentration by year
+
+Use `group_by()` and `summarise()` (Chapter 10, *summarise() + group_by()*) to calculate the mean and standard deviation of `Conc` for each `Year`. Remember `na.rm = TRUE` (Chapter 10, *NA and na.rm()*). Save the result as `year_summary` and print it.
+
+```{r year-summary}
+
+year_summary <- group_by(all_data, Year)
+year_summary <- summarise(year_summary, mean= mean(Conc, na.rm=TRUE), sd=sd(Conc, na.rm=TRUE))
+
+print(year_summary)
+```
+
+**Question 4:** Does concentration differ between the two years? Answer in one or two sentences from the table.
+
+**Answer:**
+The concentration is much higher in 2021 and has a greater standard deviation. 
+## 11. The five highest concentrations
+
+Use `arrange()` with `desc()` (Chapter 10, *arrange() Rows*) and `select()` (Chapter 10, *select() Columns*) to show the five samples with the highest `Conc`, with only the `ID`, `Year` and `Conc` columns. Pipe the steps together with `%>%` (Chapter 10, *%>%*).
+
+```{r top-five}
+top5<- all_data %>%
+    select(ID, Year, Conc) %>%
+    arrange(desc(Conc)) %>%
+    head(5)
+top5
+```
+
+# Part 4 — Reshape
+
+## 12. Wide to long
+
+Starting from `all_data`, the four measurement columns you renamed in Section 5 (e.g. `micro_PC1`, `micro_PC2`, `urine_PC1`, `urine_PC2`) are in *wide* format. Use `pivot_longer()` (Chapter 10, *pivot_longer*) on `all_data` to stack those four columns into two, `Measure` (which column the value came from) and `Score` (the value). Save the result as `long_data` and check it with `head()` and `dim()`.
+
+```{r pivot-longer}
+
+long_data <- pivot_longer(all_data, cols=c(gut_PC1, gut_PC2, urine_PC1, urine_PC2), names_to="Measure", values_to= "Score")
+head(long_data)
+dim(long_data)
+```
+
+Now use `long_data` to draw histograms of `Score` with `facet_wrap()` so that each `Measure` gets its own panel (Chapter 4 and Chapter 7). Choose a sensible `binwidth`, add axis labels and a title, and use `theme_classic()`.
+
+```{r score-histograms}
+ggplot(long_data, aes(x=Score))+
+    geom_histogram(binwidth=0.2)+
+    facet_wrap(~Measure)+
+    theme_classic()+
+    labs(title="Concentration of Viral Particles of Patients in Infectious Disease Ward", X="Score", y="Count")
+```
+
+## 13. Long to wide
+
+Each `ID` was sampled once in each year. Starting from `all_data`, `select()` only `ID`, `Year` and `Conc`, then use `pivot_wider()` (Chapter 10, *pivot_wider*) so that there is one row per `ID` with a column for each year. Save it as `wide_conc`. Then add a `Change` column equal to the second year minus the first (column names that start with a digit must be wrapped in back-ticks, e.g. `` `2022` ``), and count how many IDs increased.
+
+```{r pivot-wider}
+
+wide_conc <- all_data %>%
+    select(ID, Year, Conc) %>%
+    pivot_wider(names_from = Year, values_from= Conc) %>%
+    mutate(Change = `2022` - `2021`)
+head(wide_conc)
+
+sum(wide_conc$Change >0, na.rm=TRUE)
+sum(is.na(wide_conc$Change))
+
+**Question 5:** How many IDs have a higher concentration in the second year than in the first, and how many have `NA` for the change? Why are there NAs?
+
+**Answer:**
+19 entries have a positive change from year to year, 6 have NA. I assume this is because there was not data for those entries in both years.
+# Part 5 — Test the hypothesis visually
+
+## 14. PC1 against PC2
+
+Use `ggplot()` to plot `PC1` on the x-axis and `PC2` on the y-axis for **one** of the two measurement sets, with `colour = Conc` so that concentration is shown by colour, and `facet_wrap()` by `Year`. Include `theme_classic()`, axis labels and a title (Chapter 4 and Chapter 7). Repeat for the other measurement set if it helps you answer Question 6. A few points will be **grey**: those are samples with no concentration value (`Conc` is `NA` because they were not in `Dataset1.csv`), so no colour can be assigned. Ignore them when you answer Question 6, or drop them first with `filter(!is.na(Conc))`.
+
+```{r pc-scatter}
+urine_PC <- all_data %>%
+    filter(!is.na(Conc)) %>%
+    ggplot(aes(X=urine_PC1, y=urine_PC2))+
+        geom_point()+
+        facet_wrap(~Year)+
+        theme_classic()+
+        labs(title="Urine PCs from Infectious Disease Ward Patients", x= "PC1", y="PC2")+
+        colour = "Conc"
+
+```
+
+**Question 6:** What do the data say about the hypothesis in your scenario (patients with similar viral loads have similar gut microbes and urine metabolites, or lakes with similar arsenic levels have similar invertebrate communities and water chemistry)? Answer in a short paragraph from visual inspection of your figures. For now, assume that any strong pattern is statistically robust; later we will learn to test this with models.
+
+**Answer:**
+
+**Question 7:** Read the scenario you did not choose. What, if anything, would you have done differently in the code? What does this tell you about coding as a transferable skill?
+
+**Answer:**
+
+# DO THIS LAST {-}
+
+When your document is finished and knitted, copy and paste this into the R Console to stop positpal and create your coding log. **Do not include it as a code chunk.**
+
+```
+positpal::stop_capture()
+positpal::export_capture()
+```
+
+`export_capture()` prints the name and location of the `my-capture-YYYYMMDD-HHMMSS.zip` it creates beside this file. **Each group member** uploads their own `.zip` to the **"CC3 — Coding Log (individual)"** dropbox on OnQ; the group's `.Rmd` and knitted `.html` go to your section's **TUT02-CC3** or **TUT03-CC3** folder. Submissions without the log are incomplete. If `export_capture()` fails, zip the `.capture` folder yourself and upload that instead.
